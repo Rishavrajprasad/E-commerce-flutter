@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'service_detail_page.dart';
+
 class CategoryDetailPage extends StatefulWidget {
   final String categoryName;
 
@@ -272,7 +274,15 @@ class ServiceCard extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    // TODO: Implement booking functionality
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ServiceDetailPage(
+                            service: serviceData['service'],
+                            businessName: serviceData['businessName'],
+                            vendorId: serviceData['vendorId']),
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: CategoryDetailPage.primaryPurple,

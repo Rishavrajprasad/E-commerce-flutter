@@ -22,7 +22,10 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
       TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _streetController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _stateController = TextEditingController();
+  final TextEditingController _zipController = TextEditingController();
   DateTime? createdAt;
 
   @override
@@ -46,9 +49,11 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
               vendorData.get('businessOwnerName') ?? '';
           _emailController.text = vendorData.get('email') ?? '';
           _phoneController.text = vendorData.get('phone') ?? '';
-          _addressController.text = vendorData.get('address') ?? '';
+          _streetController.text = vendorData.get('street') ?? '';
+          _cityController.text = vendorData.get('city') ?? '';
+          _stateController.text = vendorData.get('state') ?? '';
+          _zipController.text = vendorData.get('zip') ?? '';
 
-          // Handle createdAt timestamp
           final timestamp = vendorData.get('createdAt') as Timestamp?;
           createdAt = timestamp?.toDate();
         });
@@ -101,10 +106,13 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
       }
 
       final vendorData = {
-        'businessName': _businessNameController.text.trim(),
-        'businessOwnerName': _businessOwnerNameController.text.trim(),
         'phone': _phoneController.text.trim(),
-        'address': _addressController.text.trim(),
+        'street': _streetController.text.trim(),
+        'city': _cityController.text.trim(),
+        'state': _stateController.text.trim(),
+        'zip': _zipController.text.trim(),
+        'fullAddress':
+            '${_streetController.text.trim()}, ${_cityController.text.trim()}, ${_stateController.text.trim()} ${_zipController.text.trim()}',
         if (imageUrl != null) 'profilePicture': imageUrl,
         'updatedAt': FieldValue.serverTimestamp(),
       };
@@ -222,12 +230,14 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
                           controller: _businessNameController,
                           label: 'Business Name',
                           icon: Icons.business,
+                          readOnly: true,
                         ),
                         const SizedBox(height: 16),
                         _buildField(
                           controller: _businessOwnerNameController,
                           label: 'Owner Name',
                           icon: Icons.person,
+                          readOnly: true,
                         ),
                         const SizedBox(height: 16),
                         _buildField(
@@ -247,7 +257,7 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
                         ),
                         const SizedBox(height: 16),
                         _buildField(
-                          controller: _addressController,
+                          controller: _streetController,
                           label: 'Street Address',
                           icon: Icons.home,
                         ),
@@ -257,8 +267,7 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
                             Expanded(
                               flex: 2,
                               child: _buildField(
-                                controller:
-                                    TextEditingController(), // Add city controller
+                                controller: _cityController,
                                 label: 'City',
                                 icon: Icons.location_city,
                               ),
@@ -266,8 +275,7 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: _buildField(
-                                controller:
-                                    TextEditingController(), // Add state controller
+                                controller: _stateController,
                                 label: 'State',
                               ),
                             ),
@@ -275,8 +283,7 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
                         ),
                         const SizedBox(height: 16),
                         _buildField(
-                          controller:
-                              TextEditingController(), // Add ZIP controller
+                          controller: _zipController,
                           label: 'ZIP Code',
                           icon: Icons.map,
                           keyboardType: TextInputType.number,
@@ -349,8 +356,18 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
           borderSide: const BorderSide(color: Color(0xFF9C5BF5), width: 1),
         ),
       ),
-      validator: (value) =>
-          value?.isEmpty ?? true ? 'This field is required' : null,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'This field is required';
+        }
+        if (label == 'Phone Number' && !RegExp(r'^\d{10}$').hasMatch(value)) {
+          return 'Enter a valid phone number';
+        }
+        if (label == 'ZIP Code' && !RegExp(r'^\d{6}$').hasMatch(value)) {
+          return 'Enter a valid ZIP code';
+        }
+        return null;
+      },
     );
   }
 
@@ -360,7 +377,10 @@ class _VendorEditProfilePageState extends State<VendorEditProfilePage> {
     _businessOwnerNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _addressController.dispose();
+    _streetController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _zipController.dispose();
     super.dispose();
   }
 }

@@ -71,124 +71,178 @@ class ServiceDetailPage extends StatelessWidget {
     }
   }
 
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'haircut':
+        return Icons.content_cut;
+      case 'massage':
+        return Icons.spa;
+      case 'facial':
+        return Icons.face;
+      case 'makeup':
+        return Icons.brush;
+      case 'nails':
+        return Icons.clean_hands;
+      default:
+        return Icons.spa;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final serviceData = service.data() as Map<String, dynamic>;
+    final theme = Theme.of(context);
 
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.favorite_border, color: Colors.white),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          // Header with centered service icon
+          Container(
+            height: MediaQuery.of(context).size.height * 0.4,
+            decoration: BoxDecoration(
+              color: theme.primaryColor.withOpacity(0.1),
+            ),
+            child: Center(
+              child: Icon(
+                _getCategoryIcon(serviceData['category'] ?? 'other'),
+                size: 120,
+                color: theme.primaryColor,
+              ),
+            ),
+          ),
+
+          // Content
+          SingleChildScrollView(
+            child: Column(
               children: [
-                // Service Image
-                Image.network(
-                  serviceData['imageUrl'] ?? 'https://placeholder.com/300x200',
-                  width: double.infinity,
-                  height: 400,
-                  fit: BoxFit.cover,
-                ),
-                // Back and Favorite buttons
-                SafeArea(
+                SizedBox(height: MediaQuery.of(context).size.height * 0.35),
+                Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(30)),
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        IconButton(
-                          icon:
-                              const Icon(Icons.arrow_back, color: Colors.black),
-                          onPressed: () => Navigator.pop(context),
+                        // Service Category Chip
+                        Chip(
+                          avatar: Icon(_getCategoryIcon(
+                              serviceData['category'] ?? 'other')),
+                          label: Text(serviceData['category'] ?? 'Service'),
+                          backgroundColor: theme.primaryColor.withOpacity(0.1),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.favorite_border,
-                              color: Colors.black),
-                          onPressed: () {},
+                        const SizedBox(height: 16),
+
+                        // Title and Business Name
+                        Text(
+                          serviceData['name'] ?? 'Unnamed Service',
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.store,
+                                size: 16, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(
+                              businessName,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Price and Duration
+                        Row(
+                          children: [
+                            Text(
+                              '₹${serviceData['price'] ?? '0'}',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                color: theme.primaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Icon(Icons.access_time, color: Colors.grey[600]),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${serviceData['duration'] ?? '60'} mins',
+                              style: theme.textTheme.bodyLarge,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Description Section
+                        _buildSection(
+                          title: 'Description',
+                          content: serviceData['description'] ??
+                              'No description available',
+                          theme: theme,
+                        ),
+
+                        // Reviews Section
+                        _buildReviewsSection(theme),
                       ],
                     ),
                   ),
                 ),
               ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    serviceData['name'] ?? 'Unnamed Service',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '₹${serviceData['price'] ?? '0'}',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF4A90E2),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Description
-                  Text(
-                    serviceData['description'] ?? 'No description available',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Shipping & Returns
-                  const Text(
-                    'Shipping & Returns',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('Free standard shipping and free 60-day returns'),
-                  const SizedBox(height: 24),
-
-                  // Reviews
-                  _buildReviewsSection(),
-                ],
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: ElevatedButton(
+            onPressed: () => _addToCart(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.primaryColor,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
               ),
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.3),
-              spreadRadius: 1,
-              blurRadius: 5,
-            ),
-          ],
-        ),
-        child: ElevatedButton(
-          onPressed: () => _addToCart(context),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF8E6CEF),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30),
-            ),
-          ),
-          child: const Text(
-            'Add to Bag',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.shopping_bag_outlined, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  'Book Now',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -196,7 +250,33 @@ class ServiceDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildReviewsSection() {
+  Widget _buildSection({
+    required String title,
+    required String content,
+    required ThemeData theme,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          content,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: Colors.grey[600],
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildReviewsSection(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

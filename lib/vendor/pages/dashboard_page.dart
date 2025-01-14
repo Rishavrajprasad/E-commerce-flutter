@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../services/vendor_service.dart';
 
 class DashboardPage extends StatelessWidget {
@@ -8,7 +7,7 @@ class DashboardPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final VendorService _vendorService = VendorService();
+    final VendorService vendorService = VendorService();
 
     return Scaffold(
       appBar: AppBar(
@@ -31,7 +30,7 @@ class DashboardPage extends StatelessWidget {
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('orders')
-                  .where('vendorId', isEqualTo: _vendorService.currentVendorId)
+                  .where('vendorId', isEqualTo: vendorService.currentVendorId)
                   .where('status', isEqualTo: 'pending')
                   .snapshots(),
               builder: (context, snapshot) {
@@ -91,7 +90,7 @@ class DashboardPage extends StatelessWidget {
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('vendors')
-                  .doc(_vendorService.currentVendorId)
+                  .doc(vendorService.currentVendorId)
                   .collection('payments')
                   .snapshots(),
               builder: (context, snapshot) {
@@ -101,10 +100,12 @@ class DashboardPage extends StatelessWidget {
 
                 double totalRevenue = 0;
                 for (var doc in snapshot.data!.docs) {
-                  // Extract total from orderSummary map
+                  // Extract total from orderSummary map and check status
                   final orderSummary =
                       (doc.data() as Map)['orderSummary'] as Map?;
-                  if (orderSummary != null) {
+                  final status = (doc.data() as Map)['status'] as String?;
+
+                  if (orderSummary != null && status != 'cancelled') {
                     totalRevenue += (orderSummary['total'] ?? 0).toDouble();
                   }
                 }

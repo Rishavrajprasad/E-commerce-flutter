@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'order_placed_successfully_page.dart';
+
 class CheckoutPage extends StatefulWidget {
   final String vendorId;
   final double subtotal;
   final double shippingCharge;
   final double tax;
   final double total;
+  final List<CartItem> cartItems;
 
   const CheckoutPage({
     super.key,
@@ -16,6 +19,7 @@ class CheckoutPage extends StatefulWidget {
     required this.shippingCharge,
     required this.tax,
     required this.total,
+    required this.cartItems,
   });
 
   @override
@@ -23,6 +27,7 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
+  List<Address> userAddresses = [];
   Address? selectedAddress;
   PaymentMethod? selectedPaymentMethod;
 
@@ -32,12 +37,55 @@ class _CheckoutPageState extends State<CheckoutPage> {
   static const Color textLightColor = Color(0xFF9DA3B4);
   static const Color cardColor = Colors.white;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadUserAddresses();
+  }
+
+  Future<void> _loadUserAddresses() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('addresses')
+        .get();
+
+    setState(() {
+      userAddresses = snapshot.docs
+          .map((doc) => Address.fromMap(doc.id, doc.data()))
+          .toList();
+
+      // Set the first address as default if available
+      if (userAddresses.isNotEmpty && selectedAddress == null) {
+        selectedAddress = userAddresses[0];
+      }
+    });
+  }
+
   void _handleAddressSelection() async {
     final result = await showModalBottomSheet<Address>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const AddressBottomSheet(),
+      builder: (context) => AddressSelectionSheet(
+        addresses: userAddresses,
+        onAddNewAddress: () async {
+          final newAddress = await showModalBottomSheet<Address>(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => const AddressInputSheet(),
+          );
+
+          if (newAddress != null) {
+            await _saveAddress(newAddress);
+            await _loadUserAddresses();
+          }
+        },
+      ),
     );
 
     if (result != null) {
@@ -45,17 +93,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
-  void _handlePaymentMethodSelection() async {
-    final result = await showModalBottomSheet<PaymentMethod>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const PaymentMethodBottomSheet(),
-    );
+  Future<void> _saveAddress(Address address) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
 
-    if (result != null) {
-      setState(() => selectedPaymentMethod = result);
-    }
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('addresses')
+        .add(address.toMap());
+  }
+
+  void _handlePaymentMethodSelection() async {
+    setState(() {
+      selectedPaymentMethod = PaymentMethod(
+        id: 'cod',
+        type: PaymentType.cashOnDelivery,
+      );
+    });
   }
 
   @override
@@ -304,13 +359,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (selectedAddress == null || selectedPaymentMethod == null) return;
 
     try {
+      // Update debug prints to use widget.cartItems
+      print('Cart Items Length: ${widget.cartItems.length}');
+      print('Cart Items: ${widget.cartItems.map((item) => {
+            'productId': item.productId,
+            'name': item.name,
+            'price': item.price,
+            'quantity': item.quantity,
+            'image': item.imageUrl,
+          }).toList()}');
+
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      // Create order data
+      // Create order data with items
       final order = {
         'userId': FirebaseAuth.instance.currentUser?.uid,
         'vendorId': widget.vendorId,
@@ -326,44 +391,48 @@ class _CheckoutPageState extends State<CheckoutPage> {
         },
         'paymentMethod': {
           'type': selectedPaymentMethod!.type.toString(),
-          'cardEnding': selectedPaymentMethod!.cardNumber
-              .substring(selectedPaymentMethod!.cardNumber.length - 4),
+          'method': 'Cash on Delivery',
         },
         'orderSummary': {
           'subtotal': widget.subtotal,
           'shippingCharge': widget.shippingCharge,
           'tax': widget.tax,
           'total': widget.total,
-        }
+        },
+        'items': widget.cartItems
+            .map((item) => {
+                  'productId': item.productId,
+                  'name': item.name,
+                  'price': item.price,
+                  'quantity': item.quantity,
+                  'image': item.imageUrl,
+                })
+            .toList(),
       };
 
+      // Add debug print for final order
+      print('Final Order: $order');
+
       // Add order to Firebase
-      await FirebaseFirestore.instance.collection('orders').add(order);
+      final orderRef =
+          await FirebaseFirestore.instance.collection('orders').add(order);
 
       if (!mounted) return;
       Navigator.pop(context); // Remove loading dialog
 
-      // Show success dialog
-      await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Order Placed Successfully'),
-          content: const Text(
-              'Your order has been placed and will be delivered soon.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context); // Return to previous screen
-              },
-              child: const Text('OK'),
-            ),
-          ],
+      // Navigate to success page
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OrderPlacedSuccessfullyPage(
+            orderId: orderRef.id,
+          ),
         ),
       );
     } catch (e) {
+      print('Error placing order: $e'); // Add error debug print
       if (!mounted) return;
-      Navigator.pop(context); // Remove loading dialog
+      Navigator.pop(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error placing order: ${e.toString()}')),
@@ -391,6 +460,29 @@ class Address {
     required this.phone,
   });
 
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'streetAddress': streetAddress,
+      'city': city,
+      'state': state,
+      'postalCode': postalCode,
+      'phone': phone,
+    };
+  }
+
+  static Address fromMap(String id, Map<String, dynamic> map) {
+    return Address(
+      id: id,
+      name: map['name'] ?? '',
+      streetAddress: map['streetAddress'] ?? '',
+      city: map['city'] ?? '',
+      state: map['state'] ?? '',
+      postalCode: map['postalCode'] ?? '',
+      phone: map['phone'] ?? '',
+    );
+  }
+
   String get detailedAddress => '$streetAddress, $city, $state $postalCode';
 
   @override
@@ -399,31 +491,211 @@ class Address {
 
 class PaymentMethod {
   final String id;
-  final String cardNumber;
-  final String cardHolderName;
-  final String expiryDate;
   final PaymentType type;
 
   PaymentMethod({
     required this.id,
-    required this.cardNumber,
-    required this.cardHolderName,
-    required this.expiryDate,
     required this.type,
   });
 
-  String get description =>
-      'Card ending in ${cardNumber.substring(cardNumber.length - 4)}';
+  String get description => 'Pay on delivery';
 
   @override
-  String toString() =>
-      type == PaymentType.creditCard ? 'Credit Card' : 'Debit Card';
+  String toString() => 'Cash on Delivery';
 }
 
-enum PaymentType { creditCard, debitCard }
+enum PaymentType { cashOnDelivery }
 
-class AddressBottomSheet extends StatelessWidget {
-  const AddressBottomSheet({super.key});
+class AddressInputSheet extends StatefulWidget {
+  const AddressInputSheet({super.key});
+
+  @override
+  State<AddressInputSheet> createState() => _AddressInputSheetState();
+}
+
+class _AddressInputSheetState extends State<AddressInputSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _streetController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _stateController = TextEditingController();
+  final _postalCodeController = TextEditingController();
+  final _phoneController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(20),
+            child: Text(
+              'Enter Shipping Address',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    _buildTextFormField(
+                      controller: _nameController,
+                      label: 'Full Name',
+                      icon: Icons.person,
+                    ),
+                    _buildTextFormField(
+                      controller: _phoneController,
+                      label: 'Phone Number',
+                      icon: Icons.phone,
+                    ),
+                    _buildTextFormField(
+                      controller: _streetController,
+                      label: 'Street Address',
+                      icon: Icons.home,
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextFormField(
+                            controller: _cityController,
+                            label: 'City',
+                            icon: Icons.location_city,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildTextFormField(
+                            controller: _stateController,
+                            label: 'State',
+                            icon: Icons.map,
+                          ),
+                        ),
+                      ],
+                    ),
+                    _buildTextFormField(
+                      controller: _postalCodeController,
+                      label: 'Postal Code',
+                      icon: Icons.local_post_office,
+                    ),
+                    const SizedBox(height: 30),
+                    _buildSaveButton(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextFormField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, color: Colors.blueAccent),
+          filled: true,
+          fillColor: Colors.grey[100],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Required';
+          }
+          if (label == 'Postal Code' && !RegExp(r'^\d{6}$').hasMatch(value)) {
+            return 'Enter a valid 6-digit postal code';
+          }
+          if (label == 'Phone Number' && !RegExp(r'^\d{10}$').hasMatch(value)) {
+            return 'Enter a valid 10-digit phone number';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () {
+          if (_formKey.currentState?.validate() ?? false) {
+            Navigator.pop(
+              context,
+              Address(
+                id: DateTime.now().toString(),
+                name: _nameController.text,
+                streetAddress: _streetController.text,
+                city: _cityController.text,
+                state: _stateController.text,
+                postalCode: _postalCodeController.text,
+                phone: _phoneController.text,
+              ),
+            );
+          }
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blueAccent,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+        child: const Text(
+          'Save Address',
+          style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _streetController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _postalCodeController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+}
+
+class AddressSelectionSheet extends StatelessWidget {
+  final List<Address> addresses;
+  final VoidCallback onAddNewAddress;
+
+  const AddressSelectionSheet({
+    super.key,
+    required this.addresses,
+    required this.onAddNewAddress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -438,116 +710,53 @@ class AddressBottomSheet extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-              'Select Address',
+              'Select Shipping Address',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
           ),
           Expanded(
-            child: ListView(
-              children: [
-                _buildAddressItem(
-                  context,
-                  Address(
-                    id: '1',
-                    name: 'Home',
-                    streetAddress: '123 Main St',
-                    city: 'Mumbai',
-                    state: 'Maharashtra',
-                    postalCode: '400001',
-                    phone: '+91 9876543210',
-                  ),
-                ),
-                _buildAddressItem(
-                  context,
-                  Address(
-                    id: '2',
-                    name: 'Office',
-                    streetAddress: '456 Work Ave',
-                    city: 'Mumbai',
-                    state: 'Maharashtra',
-                    postalCode: '400002',
-                    phone: '+91 9876543211',
-                  ),
-                ),
-              ],
+            child: ListView.builder(
+              itemCount: addresses.length + 1,
+              itemBuilder: (context, index) {
+                if (index == addresses.length) {
+                  return ListTile(
+                    leading: const Icon(Icons.add_circle_outline),
+                    title: const Text('Add New Address'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      onAddNewAddress();
+                    },
+                  );
+                }
+
+                final address = addresses[index];
+                return ListTile(
+                  leading: const Icon(Icons.location_on),
+                  title: Text(address.name),
+                  subtitle: Text(address.detailedAddress),
+                  onTap: () => Navigator.pop(context, address),
+                );
+              },
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAddressItem(BuildContext context, Address address) {
-    return ListTile(
-      title: Text(address.name),
-      subtitle: Text(address.detailedAddress),
-      onTap: () => Navigator.pop(context, address),
     );
   }
 }
 
-class PaymentMethodBottomSheet extends StatelessWidget {
-  const PaymentMethodBottomSheet({super.key});
+class CartItem {
+  final String productId;
+  final String name;
+  final double price;
+  final int quantity;
+  final String imageUrl;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Select Payment Method',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              children: [
-                _buildPaymentMethodItem(
-                  context,
-                  PaymentMethod(
-                    id: '1',
-                    cardNumber: '4111111111111111',
-                    cardHolderName: 'John Doe',
-                    expiryDate: '12/25',
-                    type: PaymentType.creditCard,
-                  ),
-                ),
-                _buildPaymentMethodItem(
-                  context,
-                  PaymentMethod(
-                    id: '2',
-                    cardNumber: '5555555555554444',
-                    cardHolderName: 'John Doe',
-                    expiryDate: '10/24',
-                    type: PaymentType.debitCard,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentMethodItem(
-      BuildContext context, PaymentMethod paymentMethod) {
-    return ListTile(
-      leading: Icon(
-        paymentMethod.type == PaymentType.creditCard
-            ? Icons.credit_card
-            : Icons.credit_card_outlined,
-      ),
-      title: Text(paymentMethod.toString()),
-      subtitle: Text(paymentMethod.description),
-      onTap: () => Navigator.pop(context, paymentMethod),
-    );
-  }
+  CartItem({
+    required this.productId,
+    required this.name,
+    required this.price,
+    required this.quantity,
+    required this.imageUrl,
+  });
 }

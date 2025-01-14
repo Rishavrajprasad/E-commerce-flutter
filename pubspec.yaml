@@ -45,7 +45,7 @@ dependencies:
   provider: ^6.1.1
   image_picker: ^1.0.5
   cached_network_image: ^3.3.0
-  intl: ^0.20.1
+  intl: ^0.18.0
   supabase_flutter: ^2.8.3
 
 dev_dependencies:

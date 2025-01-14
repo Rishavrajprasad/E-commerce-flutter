@@ -72,7 +72,6 @@ class CartPage extends StatelessWidget {
             'assets/images/parcel.png',
             height: 200,
           ),
-          const SizedBox(height: 32),
           Text(
             'Your Cart is Empty',
             style: TextStyle(
@@ -81,7 +80,6 @@ class CartPage extends StatelessWidget {
               color: textDarkColor,
             ),
           ),
-          const SizedBox(height: 12),
           Text(
             'Add items to start shopping',
             style: TextStyle(
@@ -89,7 +87,7 @@ class CartPage extends StatelessWidget {
               color: textLightColor,
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
@@ -122,6 +120,7 @@ class CartPage extends StatelessWidget {
   Widget _buildCartItem(
       DocumentSnapshot cartItem, String userId, BuildContext context) {
     final data = cartItem.data() as Map<String, dynamic>;
+    final int quantity = data['quantity'] ?? 1;
 
     return Card(
       elevation: 0.5,
@@ -139,10 +138,13 @@ class CartPage extends StatelessWidget {
               height: 90,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                image: DecorationImage(
-                  image: NetworkImage(
-                      data['imageUrl'] ?? 'https://picsum.photos/100'),
-                  fit: BoxFit.cover,
+                color: primaryColor.withOpacity(0.1),
+              ),
+              child: Center(
+                child: Icon(
+                  _getServiceIcon(data['category'] ?? 'other'),
+                  size: 40,
+                  color: primaryColor,
                 ),
               ),
             ),
@@ -194,14 +196,96 @@ class CartPage extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '₹${data['price'] ?? '0'}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor,
-                    ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '₹${data['price'] ?? '0'}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                      Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(18),
+                                onTap: quantity > 1
+                                    ? () {
+                                        FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(userId)
+                                            .collection('cart')
+                                            .doc(cartItem.id)
+                                            .update({'quantity': quantity - 1});
+                                      }
+                                    : null,
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.remove,
+                                    size: 18,
+                                    color: quantity > 1
+                                        ? primaryColor
+                                        : Colors.grey.shade400,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 36,
+                              alignment: Alignment.center,
+                              child: Text(
+                                quantity.toString(),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: textDarkColor,
+                                ),
+                              ),
+                            ),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(18),
+                                onTap: () {
+                                  FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(userId)
+                                      .collection('cart')
+                                      .doc(cartItem.id)
+                                      .update({'quantity': quantity + 1});
+                                },
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.add,
+                                    size: 18,
+                                    color: primaryColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -243,6 +327,23 @@ class CartPage extends StatelessWidget {
     );
   }
 
+  IconData _getServiceIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'haircut':
+        return Icons.content_cut;
+      case 'massage':
+        return Icons.spa;
+      case 'makeup':
+        return Icons.face;
+      case 'nail':
+        return Icons.brush;
+      case 'facial':
+        return Icons.face_retouching_natural;
+      default:
+        return Icons.spa_outlined;
+    }
+  }
+
   Widget _buildCartSummary(
       List<DocumentSnapshot> cartItems, BuildContext context) {
     // Get vendorId from the first cart item
@@ -252,8 +353,12 @@ class CartPage extends StatelessWidget {
 
     final subtotal = cartItems.fold<double>(
       0,
-      (sum, item) =>
-          sum + ((item.data() as Map<String, dynamic>)['price'] ?? 0),
+      (sum, item) {
+        final data = item.data() as Map<String, dynamic>;
+        final price = data['price'] ?? 0;
+        final quantity = data['quantity'] ?? 1;
+        return sum + (price * quantity);
+      },
     );
 
     // Added fixed charges (you can modify these values as needed)
@@ -386,6 +491,15 @@ class CartPage extends StatelessWidget {
                       shippingCharge: shippingCharge,
                       tax: tax,
                       total: total,
+                      cartItems: cartItems
+                          .map((doc) => CartItem(
+                                productId: doc.id,
+                                name: doc['name'] ?? '',
+                                price: (doc['price'] ?? 0).toDouble(),
+                                quantity: doc['quantity'] ?? 1,
+                                imageUrl: doc['imageUrl'] ?? '',
+                              ))
+                          .toList(),
                     ),
                   ),
                 );

@@ -86,11 +86,17 @@ class PaymentHistoryPage extends StatelessWidget {
 
   Widget _buildPaymentsList(
       BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+    // Filter out cancelled orders
+    final validPayments = snapshot.data!.docs.where((doc) {
+      final payment = doc.data() as Map;
+      return payment['status']?.toLowerCase() != 'cancelled';
+    }).toList();
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-      itemCount: snapshot.data!.docs.length,
+      itemCount: validPayments.length, // Use filtered list length
       itemBuilder: (context, index) {
-        final payment = snapshot.data!.docs[index].data() as Map;
+        final payment = validPayments[index].data() as Map;
         final DateTime orderDate = payment['orderDate'].toDate();
         final shippingAddress = payment['shippingAddress'] as Map? ?? {};
         final paymentMethod = payment['paymentMethod'] as Map? ?? {};
@@ -248,6 +254,11 @@ class PaymentHistoryPage extends StatelessWidget {
         return StatusConfig(
           color: Colors.red[700]!,
           icon: Icons.error,
+        );
+      case 'cancelled':
+        return StatusConfig(
+          color: Colors.grey[700]!,
+          icon: Icons.cancel,
         );
       default:
         return StatusConfig(

@@ -54,4 +54,23 @@ class VendorService {
   String get currentVendorId {
     return FirebaseAuth.instance.currentUser?.uid ?? '';
   }
+
+  Stream<double> getTotalRevenue() {
+    return FirebaseFirestore.instance
+        .collection('vendors')
+        .doc(currentVendorId)
+        .collection('payments')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.fold<double>(0, (total, doc) {
+        final payment = doc.data();
+        // Only include completed payments that aren't cancelled
+        if (payment['status']?.toLowerCase() == 'completed' &&
+            payment['status']?.toLowerCase() != 'cancelled') {
+          return total + (payment['orderSummary']?['total'] ?? 0).toDouble();
+        }
+        return total;
+      });
+    });
+  }
 }

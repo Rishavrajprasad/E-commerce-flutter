@@ -3,6 +3,7 @@ import 'package:saloon_app/client/pages/auth/signup.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:saloon_app/vendor/pages/vendor_sign_up.dart';
+import 'package:saloon_app/admin/admin_dashboard.dart';
 
 import '../../../vendor/pages/vendor_homepage.dart';
 import '../homepage.dart';
@@ -40,25 +41,26 @@ class _LoginState extends State<Login> {
 
         // Check user role
         final role = await AuthService.getUserRole();
-
+        print(role);
         if (mounted) {
-          if (role == 'customer') {
+          if (role == 'admin') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const AdminDashboard()),
+            );
+          } else if (role == 'customer') {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const HomePage()),
             );
           } else if (role == 'vendor') {
-            print('Vendor role detected');
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const VendorHomePage()),
             );
           } else {
-            // Show error or redirect to vendor page
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content:
-                      Text('Access denied. This login is for customers only.')),
+              const SnackBar(content: Text('Invalid user role')),
             );
             await FirebaseAuth.instance.signOut();
           }
@@ -94,24 +96,24 @@ class _LoginState extends State<Login> {
       final role = await AuthService.getUserRole();
 
       if (mounted) {
-        if (role == 'customer') {
-          print('Customer role detected');
+        if (role == 'admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminDashboard()),
+          );
+        } else if (role == 'customer') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HomePage()),
           );
         } else if (role == 'vendor') {
-          print('Vendor role detected');
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const VendorHomePage()),
           );
         } else {
-          // Show error or redirect to vendor page
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text('Access denied. This login is for customers only.')),
+            const SnackBar(content: Text('Invalid user role')),
           );
           await FirebaseAuth.instance.signOut();
         }
@@ -157,6 +159,7 @@ class _LoginState extends State<Login> {
                     return null;
                   },
                   autofocus: false,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     hintText: 'Email Address',
                     hintStyle: const TextStyle(

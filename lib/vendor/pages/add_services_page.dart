@@ -296,7 +296,7 @@ class _AddServicesPageState extends State<AddServicesPage> {
   }
 
   void _showAddServiceForm() {
-    // Reset all form fields and state once at the beginning
+    // Reset form fields
     _nameController.clear();
     _priceController.clear();
     _descriptionController.clear();
@@ -312,102 +312,129 @@ class _AddServicesPageState extends State<AddServicesPage> {
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
           return Container(
-            height: MediaQuery.of(context).size.height * 0.85,
+            height: MediaQuery.of(context).size.height * 0.9,
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: Color(0xFFF8F9FF),
               borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(25.0),
-                topRight: Radius.circular(25.0),
+                topLeft: Radius.circular(32.0),
+                topRight: Radius.circular(32.0),
               ),
             ),
             child: SingleChildScrollView(
               child: Padding(
                 padding: EdgeInsets.only(
-                  left: 20,
-                  right: 20,
-                  top: 20,
-                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                  left: 24,
+                  right: 24,
+                  top: 32,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 24,
                 ),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Add New Service',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.close),
-                          ),
-                        ],
+                      const Text(
+                        'Create New Service',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2A2A2A),
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Add details about your service offering',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Service Name Field
                       _buildTextField(
                         controller: _nameController,
                         label: 'Service Name',
-                        icon: Icons.spa,
+                        icon: Icons.spa_rounded,
+                        hint: 'e.g., Premium Haircut',
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
+
+                      // Price Field with currency symbol
                       _buildTextField(
                         controller: _priceController,
                         label: 'Price',
-                        icon: Icons.attach_money,
-                        keyboardType: TextInputType.number,
+                        icon: Icons.currency_rupee_rounded,
+                        hint: '499',
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
+
+                      // Description Field
                       _buildTextField(
                         controller: _descriptionController,
                         label: 'Description',
-                        icon: Icons.description,
-                        maxLines: 3,
+                        icon: Icons.description_rounded,
+                        hint: 'Describe your service in detail...',
+                        maxLines: 4,
                       ),
-                      const SizedBox(height: 16),
-                      _buildDropdown(
-                        value: _selectedCategory,
-                        items: _categories,
-                        label: 'Category',
-                        icon: Icons.category,
-                        onChanged: (String? newValue) {
-                          setState(() => _selectedCategory = newValue);
-                        },
+                      const SizedBox(height: 20),
+
+                      // Category and Gender in Row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDropdown(
+                              value: _selectedCategory,
+                              items: _categories,
+                              label: 'Category',
+                              icon: Icons.category_rounded,
+                              onChanged: (String? newValue) {
+                                setState(() => _selectedCategory = newValue);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildDropdown(
+                              value: _selectedGender,
+                              items: _genders,
+                              label: 'For',
+                              icon: Icons.people_alt_rounded,
+                              onChanged: (String? newValue) {
+                                setState(() => _selectedGender = newValue);
+                              },
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      _buildDropdown(
-                        value: _selectedGender,
-                        items: _genders,
-                        label: 'Gender',
-                        icon: Icons.people,
-                        onChanged: (String? newValue) {
-                          setState(() => _selectedGender = newValue);
-                        },
-                      ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
+
+                      // Submit Button
                       SizedBox(
                         width: double.infinity,
+                        height: 56,
                         child: ElevatedButton(
-                          onPressed: () {
-                            _submitForm();
-                            Navigator.pop(context);
-                          },
+                          onPressed: _submitForm,
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            backgroundColor:
+                                const Color(0xFF6C63FF), // Purple accent
+                            foregroundColor: Colors.white,
+                            elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(16),
                             ),
                           ),
                           child: const Text(
                             'Add Service',
-                            style: TextStyle(fontSize: 16),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                       ),
@@ -422,36 +449,64 @@ class _AddServicesPageState extends State<AddServicesPage> {
     );
   }
 
-  // Helper methods for building form fields
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
     required IconData icon,
+    required String hint,
     int maxLines = 1,
     TextInputType? keyboardType,
   }) {
-    return TextFormField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF2A2A2A),
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          style: const TextStyle(fontSize: 16),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: Colors.grey[400]),
+            prefixIcon: Icon(icon, color: const Color(0xFF6C63FF)),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: Colors.grey[200]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: Color(0xFF6C63FF), width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            contentPadding: const EdgeInsets.all(16),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return '$label is required';
+            }
+            // ... rest of your validation logic
+            return null;
+          },
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Theme.of(context).primaryColor),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-      ),
-      validator: (value) => value!.isEmpty ? 'This field is required' : null,
+      ],
     );
   }
 
@@ -462,47 +517,82 @@ class _AddServicesPageState extends State<AddServicesPage> {
     required IconData icon,
     required Function(String?) onChanged,
   }) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF2A2A2A),
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: value,
+          icon: const Icon(Icons.arrow_drop_down_rounded, size: 20),
+          decoration: InputDecoration(
+            prefixIcon: Icon(icon, color: const Color(0xFF6C63FF), size: 20),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: Colors.grey[200]!),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: Color(0xFF6C63FF), width: 2),
+            ),
+            isDense: true, // Makes the field more compact
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          ),
+          items: items.map((String item) {
+            return DropdownMenuItem(
+              value: item,
+              child: Text(
+                item,
+                style: const TextStyle(fontSize: 14), // Slightly smaller text
+              ),
+            );
+          }).toList(),
+          onChanged: onChanged,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please select a $label';
+            }
+            return null;
+          },
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Theme.of(context).primaryColor),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-      ),
-      items: items.map((String item) {
-        return DropdownMenuItem(
-          value: item,
-          child: Text(item),
-        );
-      }).toList(),
-      onChanged: onChanged,
-      validator: (value) => value == null ? 'Please select an option' : null,
+      ],
     );
   }
 
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       try {
+        final price = double.tryParse(_priceController.text);
+        if (price == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invalid price format')),
+          );
+          return;
+        }
+
         await _vendorService.addService({
-          'name': _nameController.text,
-          'price': double.parse(_priceController.text),
-          'description': _descriptionController.text,
+          'name': _nameController.text.trim(),
+          'price': price,
+          'description': _descriptionController.text.trim(),
           'category': _selectedCategory,
           'gender': _selectedGender,
           'createdAt': DateTime.now(),
         });
+        Navigator.pop(context);
 
         _nameController.clear();
         _priceController.clear();

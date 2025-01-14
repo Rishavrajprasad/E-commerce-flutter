@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 class AuthService {
   static Future<String?> getUserRole() async {
     final user = FirebaseAuth.instance.currentUser;
+    print("user: $user");
     if (user == null) return null;
 
     // Check users collection

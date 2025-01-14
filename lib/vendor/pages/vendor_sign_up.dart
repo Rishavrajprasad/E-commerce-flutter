@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../../client/pages/auth/login.dart';
+import 'vendor_details_page.dart';
 
 class VendorSignUpPage extends StatefulWidget {
   const VendorSignUpPage({super.key});
@@ -16,23 +14,28 @@ class _VendorSignUpPageState extends State<VendorSignUpPage> {
   final _businessNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _addressController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
-  final _businessOwnerNameController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  bool _obscureConfirmPassword = true;
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your email';
+    }
+    // More comprehensive email validation
+    final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegExp.hasMatch(value)) {
+      return 'Please enter a valid email address';
+    }
+    return null;
+  }
 
   @override
   void dispose() {
     _businessNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _phoneController.dispose();
-    _addressController.dispose();
-    _businessOwnerNameController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
@@ -51,27 +54,16 @@ class _VendorSignUpPageState extends State<VendorSignUpPage> {
           password: _passwordController.text,
         );
 
-        // Add vendor details to Firestore
-        await FirebaseFirestore.instance
-            .collection('vendors')
-            .doc(userCredential.user!.uid)
-            .set({
-          'businessName': _businessNameController.text.trim(),
-          'businessOwnerName': _businessOwnerNameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'phone': _phoneController.text.trim(),
-          'address': _addressController.text.trim(),
-          'role': 'vendor',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Sign up successful!')),
-          );
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const Login()),
+            MaterialPageRoute(
+              builder: (context) => VendorDetailsPage(
+                userId: userCredential.user!.uid,
+                businessName: _businessNameController.text.trim(),
+                email: _emailController.text.trim(),
+              ),
+            ),
           );
         }
       } on FirebaseAuthException catch (e) {
@@ -110,6 +102,7 @@ class _VendorSignUpPageState extends State<VendorSignUpPage> {
                     ),
                   ),
                   const SizedBox(height: 32),
+                  // Business Name Field
                   TextFormField(
                     controller: _businessNameController,
                     decoration: const InputDecoration(
@@ -130,26 +123,7 @@ class _VendorSignUpPageState extends State<VendorSignUpPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _businessOwnerNameController,
-                    decoration: const InputDecoration(
-                      hintText: 'Business Owner Name',
-                      prefixIcon: Icon(Icons.business, color: Colors.grey),
-                      filled: true,
-                      fillColor: Color(0xFFF5F5F5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your business name';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
+                  // Email Field
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -164,17 +138,10 @@ class _VendorSignUpPageState extends State<VendorSignUpPage> {
                         borderSide: BorderSide.none,
                       ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
+                    validator: _validateEmail,
                   ),
                   const SizedBox(height: 16),
+                  // Password Fields
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
@@ -250,49 +217,6 @@ class _VendorSignUpPageState extends State<VendorSignUpPage> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      hintText: 'Phone Number',
-                      prefixIcon:
-                          Icon(Icons.phone_outlined, color: Colors.grey),
-                      filled: true,
-                      fillColor: Color(0xFFF5F5F5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your phone number';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _addressController,
-                    decoration: const InputDecoration(
-                      hintText: 'Business Address',
-                      prefixIcon:
-                          Icon(Icons.location_on_outlined, color: Colors.grey),
-                      filled: true,
-                      fillColor: Color(0xFFF5F5F5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your business address';
-                      }
-                      return null;
-                    },
-                  ),
                   const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,
@@ -309,7 +233,7 @@ class _VendorSignUpPageState extends State<VendorSignUpPage> {
                       child: _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
                           : const Text(
-                              'Sign Up',
+                              'Continue',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,

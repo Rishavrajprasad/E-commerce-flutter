@@ -17,7 +17,7 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final VendorService _vendorService = VendorService();
+    final VendorService vendorService = VendorService();
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -34,6 +34,7 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'all', child: Text('All Bookings')),
               const PopupMenuItem(value: 'confirmed', child: Text('Confirmed')),
+              const PopupMenuItem(value: 'completed', child: Text('Completed')),
               const PopupMenuItem(value: 'pending', child: Text('Pending')),
               const PopupMenuItem(value: 'cancelled', child: Text('Cancelled')),
             ],
@@ -62,7 +63,7 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
                 setState(() {});
               },
               child: StreamBuilder<QuerySnapshot>(
-                stream: _buildBookingsStream(_vendorService),
+                stream: _buildBookingsStream(vendorService),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     print(snapshot.error);
@@ -137,6 +138,7 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
     final Map orderSummary = booking['orderSummary'] ?? {};
     final Map paymentMethod = booking['paymentMethod'] ?? {};
     final Map shippingAddress = booking['shippingAddress'] ?? {};
+    final List<dynamic> items = booking['items'] ?? [];
 
     return Card(
       elevation: 2,
@@ -181,6 +183,35 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildSectionTitle('Ordered Items', theme),
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${item['name']} x${item['quantity']}',
+                              style: theme.textTheme.bodyLarge,
+                            ),
+                          ),
+                          Text(
+                            '₹${(item['price'] * item['quantity']).toStringAsFixed(2)}',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 24),
                 _buildSectionTitle('Payment Details', theme),
                 _buildDetailRow(
                     'Subtotal', '₹${orderSummary['subtotal']}', theme),
@@ -235,6 +266,23 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
                         ),
                       ),
                     ],
+                  ),
+                ] else if (status == 'confirmed') ...[
+                  const SizedBox(height: 24),
+                  Center(
+                    child: ElevatedButton.icon(
+                      onPressed: () =>
+                          _updateBookingStatus(bookingId, 'completed'),
+                      icon: const Icon(Icons.task_alt, color: Colors.white),
+                      label: const Text('Mark as Completed',
+                          style: TextStyle(color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -298,12 +346,36 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
 
   Future<void> _updateBookingStatus(String bookingId, String newStatus) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(bookingId)
-          .update({'status': newStatus});
+      final orderRef =
+          FirebaseFirestore.instance.collection('orders').doc(bookingId);
+
+      if (newStatus == 'completed') {
+        // Use a transaction to ensure both operations succeed or fail together
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final orderDoc = await transaction.get(orderRef);
+          final orderData = orderDoc.data() as Map<String, dynamic>;
+
+          // Update order status
+          transaction.update(orderRef, {'status': newStatus});
+
+          // Migrate payment to vendor account
+          final vendorRef = FirebaseFirestore.instance
+              .collection('vendors')
+              .doc(orderData['vendorId']);
+
+          final paymentAmount = orderData['orderSummary']['total'] ?? 0;
+          transaction.update(vendorRef, {
+            'pendingPayments': FieldValue.increment(-paymentAmount),
+            'completedPayments': FieldValue.increment(paymentAmount),
+          });
+        });
+      } else {
+        // For other status updates, simply update the status
+        await orderRef.update({'status': newStatus});
+      }
     } catch (e) {
-      // Handle error
+      print('Error updating booking status: $e');
+      // You might want to show a snackbar or dialog here to inform the user
     }
   }
 
@@ -314,6 +386,9 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
     switch (status.toLowerCase()) {
       case 'confirmed':
         chipColor = Colors.green;
+        break;
+      case 'completed':
+        chipColor = Colors.blue;
         break;
       case 'pending':
         chipColor = Colors.orange;
