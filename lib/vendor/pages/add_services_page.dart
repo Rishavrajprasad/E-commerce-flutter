@@ -296,157 +296,176 @@ class _AddServicesPageState extends State<AddServicesPage> {
   }
 
   void _showAddServiceForm() {
-    // Reset form fields
-    _nameController.clear();
-    _priceController.clear();
-    _descriptionController.clear();
-    setState(() {
-      _selectedCategory = null;
-      _selectedGender = null;
-    });
+    try {
+      print('Starting _showAddServiceForm...');
+      // Reset form fields
+      _nameController.clear();
+      _priceController.clear();
+      _descriptionController.clear();
+      setState(() {
+        _selectedCategory = null;
+        _selectedGender = null;
+      });
+      print('Form fields reset successfully');
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.9,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF8F9FF),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(32.0),
-                topRight: Radius.circular(32.0),
-              ),
-            ),
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 24,
-                  right: 24,
-                  top: 32,
-                  bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          print('Building modal bottom sheet...');
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              return Container(
+                height: MediaQuery.of(context).size.height * 0.9,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF8F9FF),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(32.0),
+                    topRight: Radius.circular(32.0),
+                  ),
                 ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Create New Service',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2A2A2A),
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Add details about your service offering',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Service Name Field
-                      _buildTextField(
-                        controller: _nameController,
-                        label: 'Service Name',
-                        icon: Icons.spa_rounded,
-                        hint: 'e.g., Premium Haircut',
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Price Field with currency symbol
-                      _buildTextField(
-                        controller: _priceController,
-                        label: 'Price',
-                        icon: Icons.currency_rupee_rounded,
-                        hint: '499',
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Description Field
-                      _buildTextField(
-                        controller: _descriptionController,
-                        label: 'Description',
-                        icon: Icons.description_rounded,
-                        hint: 'Describe your service in detail...',
-                        maxLines: 4,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Category and Gender in Row
-                      Row(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: 24,
+                      right: 24,
+                      top: 32,
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: _buildDropdown(
-                              value: _selectedCategory,
-                              items: _categories,
-                              label: 'Category',
-                              icon: Icons.category_rounded,
-                              onChanged: (String? newValue) {
-                                setState(() => _selectedCategory = newValue);
-                              },
+                          const Text(
+                            'Create New Service',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2A2A2A),
+                              letterSpacing: 0.5,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildDropdown(
-                              value: _selectedGender,
-                              items: _genders,
-                              label: 'For',
-                              icon: Icons.people_alt_rounded,
-                              onChanged: (String? newValue) {
-                                setState(() => _selectedGender = newValue);
-                              },
+                          const SizedBox(height: 8),
+                          Text(
+                            'Add details about your service offering',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Service Name Field
+                          _buildTextField(
+                            controller: _nameController,
+                            label: 'Service Name',
+                            icon: Icons.spa_rounded,
+                            hint: 'e.g., Premium Haircut',
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Price Field with currency symbol
+                          _buildTextField(
+                            controller: _priceController,
+                            label: 'Price',
+                            icon: Icons.currency_rupee_rounded,
+                            hint: '499',
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Description Field
+                          _buildTextField(
+                            controller: _descriptionController,
+                            label: 'Description',
+                            icon: Icons.description_rounded,
+                            hint: 'Describe your service in detail...',
+                            maxLines: 4,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Category and Gender in Row
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildDropdown(
+                                  value: _selectedCategory,
+                                  items: _categories,
+                                  label: 'Category',
+                                  icon: Icons.category_rounded,
+                                  onChanged: (String? newValue) {
+                                    setState(
+                                        () => _selectedCategory = newValue);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildDropdown(
+                                  value: _selectedGender,
+                                  items: _genders,
+                                  label: 'For',
+                                  icon: Icons.people_alt_rounded,
+                                  onChanged: (String? newValue) {
+                                    setState(() => _selectedGender = newValue);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Submit Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: _submitForm,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    const Color(0xFF6C63FF), // Purple accent
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: const Text(
+                                'Add Service',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 32),
-
-                      // Submit Button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: _submitForm,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                const Color(0xFF6C63FF), // Purple accent
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: const Text(
-                            'Add Service',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           );
         },
-      ),
-    );
+      ).catchError((error) {
+        print('Error showing modal sheet: $error');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error showing form: $error')),
+        );
+      });
+    } catch (e) {
+      print('Error in _showAddServiceForm: $e');
+      print('Error stack trace: ${StackTrace.current}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   Widget _buildTextField({
@@ -574,38 +593,57 @@ class _AddServicesPageState extends State<AddServicesPage> {
   }
 
   void _submitForm() async {
+    print('Starting _submitForm...');
     if (_formKey.currentState!.validate()) {
       try {
         final price = double.tryParse(_priceController.text);
         if (price == null) {
+          print('Invalid price format entered: ${_priceController.text}');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Invalid price format')),
           );
           return;
         }
 
-        await _vendorService.addService({
+        print('Attempting to add service...');
+        final serviceData = {
           'name': _nameController.text.trim(),
           'price': price,
           'description': _descriptionController.text.trim(),
           'category': _selectedCategory,
           'gender': _selectedGender,
           'createdAt': DateTime.now(),
-        });
-        Navigator.pop(context);
+        };
+        print('Service data prepared: $serviceData');
 
+        print('Calling vendorService.addService...');
+        await _vendorService.addService(serviceData);
+        print('Service added successfully to Firestore');
+
+        Navigator.pop(context);
         _nameController.clear();
         _priceController.clear();
         _descriptionController.clear();
+        print('Form cleared and modal closed');
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Service added successfully')),
+          const SnackBar(
+            content: Text('Service added successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
       } catch (e) {
+        print('Error in _submitForm: $e');
+        print('Error stack trace: ${StackTrace.current}');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+            content: Text('Error adding service: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
+    } else {
+      print('Form validation failed');
     }
   }
 

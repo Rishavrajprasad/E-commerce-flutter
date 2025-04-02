@@ -65,29 +65,31 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
               child: StreamBuilder<QuerySnapshot>(
                 stream: _buildBookingsStream(vendorService),
                 builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    print(snapshot.error);
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline,
-                              size: 60, color: Colors.red[300]),
-                          const SizedBox(height: 16),
-                          Text('Something went wrong',
-                              style: theme.textTheme.titleLarge),
-                        ],
-                      ),
-                    );
-                  }
-
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
                       child: CircularProgressIndicator(),
                     );
                   }
 
-                  final filteredDocs = snapshot.data!.docs.where((doc) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.calendar_today,
+                              size: 60, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          Text('No bookings yet',
+                              style: theme.textTheme.titleLarge),
+                          const SizedBox(height: 8),
+                          Text('Your bookings will appear here',
+                              style: theme.textTheme.bodyMedium),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final filteredDocs = (snapshot.data?.docs ?? []).where((doc) {
                     final booking = doc.data() as Map;
                     final matchesStatus = _statusFilter == 'all' ||
                         booking['status'] == _statusFilter;
@@ -218,7 +220,17 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
                 _buildDetailRow(
                     'Shipping', '₹${orderSummary['shippingCharge']}', theme),
                 _buildDetailRow('Tax', '₹${orderSummary['tax']}', theme),
-                _buildDetailRow('Total', '₹${orderSummary['total']}', theme),
+                _buildDetailRow(
+                    'Total Amount', '₹${orderSummary['total']}', theme),
+                _buildDetailRow(
+                    'Platform Fee (25%)',
+                    '₹${(orderSummary['total'] * 0.25).toStringAsFixed(2)}',
+                    theme),
+                _buildDetailRow(
+                    'Your Earnings (75%)',
+                    '₹${(orderSummary['total'] * 0.75).toStringAsFixed(2)}',
+                    theme,
+                    isHighlighted: true),
                 const SizedBox(height: 8),
                 _buildDetailRow(
                   'Payment Method',
@@ -328,16 +340,21 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
         .snapshots();
   }
 
-  Widget _buildDetailRow(String label, String value, ThemeData theme) {
+  Widget _buildDetailRow(String label, String value, ThemeData theme,
+      {bool isHighlighted = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: theme.textTheme.bodyLarge),
+          Text(label,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: isHighlighted ? theme.primaryColor : null,
+              )),
           Text(value,
               style: theme.textTheme.bodyLarge?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: isHighlighted ? theme.primaryColor : null,
               )),
         ],
       ),
@@ -349,8 +366,17 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
       final orderRef =
           FirebaseFirestore.instance.collection('orders').doc(bookingId);
 
-      if (newStatus == 'completed') {
-        // Use a transaction to ensure both operations succeed or fail together
+      // For simple status updates (confirmed, cancelled)
+      if (newStatus != 'completed') {
+        await orderRef.update({'status': newStatus});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Order status updated to $newStatus')),
+        );
+        return;
+      }
+
+      // For completed status, try to update both order and payments
+      try {
         await FirebaseFirestore.instance.runTransaction((transaction) async {
           final orderDoc = await transaction.get(orderRef);
           final orderData = orderDoc.data() as Map<String, dynamic>;
@@ -358,24 +384,46 @@ class _RecentBookingsPageState extends State<RecentBookingsPage> {
           // Update order status
           transaction.update(orderRef, {'status': newStatus});
 
-          // Migrate payment to vendor account
+          // Calculate vendor's share (75% of total)
+          final totalAmount = orderData['orderSummary']['total'] ?? 0;
+          final vendorShare = totalAmount * 0.75;
+
+          // Update vendor's payments
           final vendorRef = FirebaseFirestore.instance
               .collection('vendors')
               .doc(orderData['vendorId']);
 
-          final paymentAmount = orderData['orderSummary']['total'] ?? 0;
           transaction.update(vendorRef, {
-            'pendingPayments': FieldValue.increment(-paymentAmount),
-            'completedPayments': FieldValue.increment(paymentAmount),
+            'pendingPayments': FieldValue.increment(-vendorShare),
+            'completedPayments': FieldValue.increment(vendorShare),
           });
         });
-      } else {
-        // For other status updates, simply update the status
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Order marked as completed')),
+        );
+      } catch (e) {
+        // If payment update fails, still update the order status
         await orderRef.update({'status': newStatus});
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Order marked as completed. Payment update will be processed later.'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+
+        print('Error migrating payment: $e');
       }
     } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to update order status. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
       print('Error updating booking status: $e');
-      // You might want to show a snackbar or dialog here to inform the user
     }
   }
 

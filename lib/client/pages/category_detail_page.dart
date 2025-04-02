@@ -51,6 +51,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
     for (var vendorDoc in vendorsSnapshot.docs) {
       final vendorData = vendorDoc.data();
       final businessName = vendorData['businessName'] ?? 'Unknown Salon';
+      final address = vendorData['fullAddress'] ?? 'Address not available';
 
       final servicesSnapshot = await FirebaseFirestore.instance
           .collection('vendors')
@@ -64,6 +65,9 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
           'service': serviceDoc,
           'businessName': businessName,
           'vendorId': vendorDoc.id,
+          'address': address,
+          'phone': vendorData['phone'] ?? 'Phone not available',
+          'email': vendorData['email'] ?? 'Email not available',
         });
       }
     }
@@ -278,9 +282,14 @@ class ServiceCard extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => ServiceDetailPage(
-                            service: serviceData['service'],
-                            businessName: serviceData['businessName'],
-                            vendorId: serviceData['vendorId']),
+                          service: serviceData['service'],
+                          businessName: serviceData['businessName'],
+                          vendorId: serviceData['vendorId'],
+                          address:
+                              serviceData['address'] ?? 'Address not available',
+                          phone: serviceData['phone'] ?? 'Phone not available',
+                          email: serviceData['email'] ?? 'Email not available',
+                        ),
                       ),
                     );
                   },

@@ -1,41 +1,41 @@
 {
   "project_info": {
-    "project_number": "308991445768",
-    "project_id": "saloon-bc313",
-    "storage_bucket": "saloon-bc313.firebasestorage.app"
+    "project_number": "803779030813",
+    "project_id": "amirat-4a81d",
+    "storage_bucket": "amirat-4a81d.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:308991445768:android:96cc968435cb0ad03e7abd",
+        "mobilesdk_app_id": "1:803779030813:android:b965758734e65164cfbbf4",
         "android_client_info": {
           "package_name": "com.example.saloon_app"
         }
       },
       "oauth_client": [
         {
-          "client_id": "308991445768-q46svg96a5n8qpca47ilc56v6kd8l7sr.apps.googleusercontent.com",
+          "client_id": "803779030813-ntk36qk3hrtanjmjqnjkvdhfishc77jj.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.saloon_app",
-            "certificate_hash": "81888371f75df522bbfa0cc92953f45197d7c104"
+            "certificate_hash": "1b137a2159b25a8efdab70e3ef46ae90f269682f"
           }
         },
         {
-          "client_id": "308991445768-6rl3hdo63q7r0lf9l0530urhv38vaer4.apps.googleusercontent.com",
+          "client_id": "803779030813-vmgptavr2t5ek446ovput7b35p1h9s4e.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyDlMzTwQLgKo-YdQRQaGJfTNM96mlBGWqA"
+          "current_key": "AIzaSyC1OGEKuBzPWQBRZP0lxLlBX94itfrBYtY"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "308991445768-6rl3hdo63q7r0lf9l0530urhv38vaer4.apps.googleusercontent.com",
+              "client_id": "803779030813-vmgptavr2t5ek446ovput7b35p1h9s4e.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

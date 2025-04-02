@@ -37,7 +37,7 @@ class _AdminStatisticsScreenState extends State<AdminStatisticsScreen> {
 
       final pending = await _firestore
           .collection('orders')
-          .where('status', isEqualTo: 'pending')
+          .where('status', isEqualTo: 'confirmed')
           .get();
 
       final vendors = await _firestore.collection('vendors').get();

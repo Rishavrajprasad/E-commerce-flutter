@@ -316,11 +316,15 @@ class OrdersPage extends StatelessWidget {
                                   Icons.store_outlined,
                                   [
                                     vendorData?['businessName'] ??
-                                        'Unknown Business'
+                                        'Unknown Business',
+                                    'Owner: ${vendorData?['businessOwnerName'] ?? 'N/A'}',
+                                    'Phone: ${vendorData?['phone'] ?? 'N/A'}',
+                                    'Address: ${vendorData?['fullAddress'] ?? 'N/A'}',
                                   ],
                                 );
                               }
-                              return const SizedBox.shrink();
+                              return const Center(
+                                  child: CircularProgressIndicator());
                             },
                           ),
                           const SizedBox(height: 16),

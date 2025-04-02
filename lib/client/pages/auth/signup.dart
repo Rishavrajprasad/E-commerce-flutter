@@ -20,6 +20,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _stateController = TextEditingController();
+  final _zipCodeController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -45,12 +49,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
       await userCredential.user!.updateDisplayName(
           '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}');
 
-      // Store additional user data in Firestore with role
+      // Store additional user data in Firestore with role and address
       await _firestore.collection('users').doc(userCredential.user!.uid).set({
         'name':
             '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
         'email': _emailController.text.trim(),
         'role': 'customer',
+        'address': {
+          'street': _addressController.text.trim(),
+          'city': _cityController.text.trim(),
+          'state': _stateController.text.trim(),
+          'zipCode': _zipCodeController.text.trim(),
+        },
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -150,6 +160,76 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       hintText: 'Email Address',
                       prefixIcon:
                           Icon(Icons.email_outlined, color: Colors.grey),
+                      filled: true,
+                      fillColor: Color(0xFFF5F5F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _addressController,
+                    decoration: const InputDecoration(
+                      hintText: 'Street Address',
+                      prefixIcon:
+                          Icon(Icons.location_on_outlined, color: Colors.grey),
+                      filled: true,
+                      fillColor: Color(0xFFF5F5F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _cityController,
+                          decoration: const InputDecoration(
+                            hintText: 'City',
+                            filled: true,
+                            fillColor: Color(0xFFF5F5F5),
+                            border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(12)),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _stateController,
+                          decoration: const InputDecoration(
+                            hintText: 'State',
+                            filled: true,
+                            fillColor: Color(0xFFF5F5F5),
+                            border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(12)),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _zipCodeController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      hintText: 'ZIP Code',
+                      prefixIcon: Icon(Icons.location_city_outlined,
+                          color: Colors.grey),
                       filled: true,
                       fillColor: Color(0xFFF5F5F5),
                       border: OutlineInputBorder(
@@ -286,6 +366,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _addressController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _zipCodeController.dispose();
     super.dispose();
   }
 }

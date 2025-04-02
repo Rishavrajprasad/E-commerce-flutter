@@ -9,42 +9,7 @@ class PaymentHistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final VendorService vendorService = VendorService();
-
     final theme = Theme.of(context);
-    // Create a new payment collection reference
-    final CollectionReference paymentsCollection = FirebaseFirestore.instance
-        .collection('vendors')
-        .doc(vendorService.currentVendorId)
-        .collection('payments');
-
-    // Execute the migration immediately when the page loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      print('Starting migration...');
-      vendorService.getPayments().listen((QuerySnapshot snapshot) {
-        print('Got ${snapshot.docs.length} payments to migrate');
-
-        for (var doc in snapshot.docs) {
-          final paymentData = doc.data() as Map<String, dynamic>;
-          print('Processing payment: ${doc.id}');
-          print('Payment data: $paymentData');
-
-          // Add vendor ID to payment data
-          paymentData['vendorId'] = vendorService.currentVendorId;
-
-          // Store in payments collection with same document ID
-          paymentsCollection
-              .doc(doc.id)
-              .set(paymentData, SetOptions(merge: true))
-              .then((_) {
-            print('Payment migrated successfully: ${doc.id}');
-          }).catchError((error) {
-            print('Error migrating payment ${doc.id}: $error');
-          });
-        }
-      }, onError: (error) {
-        print('Error in stream: $error');
-      });
-    });
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -55,38 +20,36 @@ class PaymentHistoryPage extends StatelessWidget {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: vendorService.getPayments(),
-        builder: (context, snapshot) {
-          print('Connection State: ${snapshot.connectionState}');
-          print('Has Data: ${snapshot.hasData}');
-          print('Has Error: ${snapshot.hasError}');
-          if (snapshot.hasData) {
-            print('Number of docs: ${snapshot.data!.docs.length}');
-          }
+      body: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: vendorService.getPayments(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return _buildLoadingState();
+                }
 
-          if (snapshot.hasError) {
-            print('Error: ${snapshot.error}');
-            return _buildErrorState();
-          }
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return _buildEmptyState(context);
+                }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingState();
-          }
+                if (snapshot.data!.docs.isEmpty) {
+                  return _buildEmptyState(context);
+                }
 
-          if (snapshot.data!.docs.isEmpty) {
-            return _buildEmptyState(context);
-          }
-
-          return _buildPaymentsList(context, snapshot);
-        },
+                return _buildPaymentsList(context, snapshot);
+              },
+            ),
+          ),
+          _buildPaymentSummary(context, vendorService),
+        ],
       ),
     );
   }
 
   Widget _buildPaymentsList(
       BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-    // Filter out cancelled orders
     final validPayments = snapshot.data!.docs.where((doc) {
       final payment = doc.data() as Map;
       return payment['status']?.toLowerCase() != 'cancelled';
@@ -94,13 +57,27 @@ class PaymentHistoryPage extends StatelessWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-      itemCount: validPayments.length, // Use filtered list length
+      itemCount: validPayments.length,
       itemBuilder: (context, index) {
         final payment = validPayments[index].data() as Map;
         final DateTime orderDate = payment['orderDate'].toDate();
         final shippingAddress = payment['shippingAddress'] as Map? ?? {};
         final paymentMethod = payment['paymentMethod'] as Map? ?? {};
         final orderSummary = payment['orderSummary'] as Map? ?? {};
+
+        // Update this section to check vendorPayment status
+        final vendorPayment = payment['vendorPayment'] as Map?;
+        final isPaid =
+            vendorPayment != null && vendorPayment['status'] == 'completed';
+        final paidDate = vendorPayment?['paidDate']?.toDate();
+
+        // Calculate payment date only if not paid
+        final DateTime paymentDate =
+            isPaid ? paidDate! : _calculatePaymentDate(orderDate);
+
+        // Calculate vendor's earnings (75% of total)
+        final totalAmount = orderSummary['total'] ?? 0.0;
+        final vendorEarnings = totalAmount * 0.75;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 16.0),
@@ -136,7 +113,7 @@ class PaymentHistoryPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '₹${orderSummary['total']?.toStringAsFixed(2) ?? '0.00'}',
+                                '₹${vendorEarnings.toStringAsFixed(2)}',
                                 style: Theme.of(context)
                                     .textTheme
                                     .headlineSmall
@@ -144,6 +121,16 @@ class PaymentHistoryPage extends StatelessWidget {
                                       fontWeight: FontWeight.bold,
                                       color:
                                           Theme.of(context).colorScheme.primary,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Your Earnings (75%)',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: Colors.grey[600],
                                     ),
                               ),
                               const SizedBox(height: 4),
@@ -158,7 +145,7 @@ class PaymentHistoryPage extends StatelessWidget {
                               ),
                             ],
                           ),
-                          _buildStatusChip(payment['status']),
+                          _buildPaymentStatusChip(isPaid, paymentDate),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -191,6 +178,87 @@ class PaymentHistoryPage extends StatelessWidget {
     );
   }
 
+  DateTime _calculatePaymentDate(DateTime orderDate) {
+    final day = orderDate.day;
+    var paymentDate = orderDate;
+
+    // If day is before 15th, payment on 15th
+    // If day is after 15th, payment on 30th (or month end)
+    if (day < 15) {
+      paymentDate = DateTime(orderDate.year, orderDate.month, 15);
+    } else {
+      // Get the last day of the current month
+      final lastDay = DateTime(orderDate.year, orderDate.month + 1, 0).day;
+      paymentDate = DateTime(orderDate.year, orderDate.month, lastDay);
+    }
+
+    // If payment date is in the past, move to next payment cycle
+    if (paymentDate.isBefore(DateTime.now())) {
+      if (day < 15) {
+        final lastDay = DateTime(orderDate.year, orderDate.month + 1, 0).day;
+        paymentDate = DateTime(orderDate.year, orderDate.month, lastDay);
+      } else {
+        paymentDate = DateTime(orderDate.year, orderDate.month + 1, 15);
+      }
+    }
+
+    return paymentDate;
+  }
+
+  Widget _buildPaymentStatusChip(bool isPaid, DateTime paymentDate) {
+    if (isPaid) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, size: 16, color: Colors.green[700]),
+            const SizedBox(width: 6),
+            Text(
+              'Paid on ${DateFormat('MMM d').format(paymentDate)}',
+              style: TextStyle(
+                color: Colors.green[700],
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.calendar_today,
+              size: 16,
+              color: Colors.blue[700],
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Due on ${DateFormat('MMM d').format(paymentDate)}',
+              style: TextStyle(
+                color: Colors.blue[700],
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   Widget _buildInfoItem(BuildContext context, IconData icon, String text) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -205,67 +273,6 @@ class PaymentHistoryPage extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  Widget _buildStatusChip(String status) {
-    final statusConfig = _getStatusConfig(status);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: statusConfig.color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            statusConfig.icon,
-            size: 16,
-            color: statusConfig.color,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            status.toLowerCase().capitalize(),
-            style: TextStyle(
-              color: statusConfig.color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  StatusConfig _getStatusConfig(String status) {
-    switch (status.toLowerCase()) {
-      case 'completed':
-        return StatusConfig(
-          color: Colors.green[700]!,
-          icon: Icons.check_circle,
-        );
-      case 'pending':
-        return StatusConfig(
-          color: Colors.orange[700]!,
-          icon: Icons.pending,
-        );
-      case 'failed':
-        return StatusConfig(
-          color: Colors.red[700]!,
-          icon: Icons.error,
-        );
-      case 'cancelled':
-        return StatusConfig(
-          color: Colors.grey[700]!,
-          icon: Icons.cancel,
-        );
-      default:
-        return StatusConfig(
-          color: Colors.grey[700]!,
-          icon: Icons.help,
-        );
-    }
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -304,33 +311,118 @@ class PaymentHistoryPage extends StatelessWidget {
     );
   }
 
-  Widget _buildErrorState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red[300],
+  Widget _buildPaymentSummary(
+      BuildContext context, VendorService vendorService) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('orders')
+          .where('vendorId', isEqualTo: vendorService.currentVendorId)
+          .where('status',
+              whereIn: ['confirmed', 'completed']) // Only count valid orders
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        double totalPending = 0;
+        double totalCompleted = 0;
+
+        for (var doc in snapshot.data!.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final orderSummary = data['orderSummary'] as Map<String, dynamic>?;
+          final vendorPayment = data['vendorPayment'] as Map<String, dynamic>?;
+
+          if (orderSummary != null) {
+            final totalAmount = orderSummary['total'] as num? ?? 0;
+            final vendorShare =
+                totalAmount * 0.75; // Calculate vendor's 75% share
+
+            // Check vendorPayment status
+            if (vendorPayment != null) {
+              if (vendorPayment['status'] == 'completed') {
+                totalCompleted += vendorShare;
+              } else {
+                // Add to pending if payment is not completed
+                totalPending += vendorShare;
+              }
+            } else {
+              // If vendorPayment doesn't exist, consider it pending
+              totalPending += vendorShare;
+            }
+          }
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 0,
+                blurRadius: 10,
+                offset: const Offset(0, -4),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'Oops! Something went wrong',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pending Payments',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '₹${totalPending.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.orange,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                height: 40,
+                width: 1,
+                color: Colors.grey[200],
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Completed Payments',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '₹${totalCompleted.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Please try again later',
-            style: TextStyle(
-              color: Colors.grey,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

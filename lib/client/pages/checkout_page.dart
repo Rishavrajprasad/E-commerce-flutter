@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import 'order_placed_successfully_page.dart';
 
@@ -30,6 +31,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   List<Address> userAddresses = [];
   Address? selectedAddress;
   PaymentMethod? selectedPaymentMethod;
+  late Razorpay _razorpay;
 
   static const Color primaryColor = Color(0xFF6C63FF);
   static const Color backgroundColor = Color(0xFFF8F9FB);
@@ -41,6 +43,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
   void initState() {
     super.initState();
     _loadUserAddresses();
+    _initializeRazorpay();
+  }
+
+  void _initializeRazorpay() {
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
   }
 
   Future<void> _loadUserAddresses() async {
@@ -107,10 +117,178 @@ class _CheckoutPageState extends State<CheckoutPage> {
   void _handlePaymentMethodSelection() async {
     setState(() {
       selectedPaymentMethod = PaymentMethod(
-        id: 'cod',
-        type: PaymentType.cashOnDelivery,
+        id: 'online',
+        type: PaymentType.online,
       );
     });
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    try {
+      // Show loading dialog
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Verify payment with your backend (recommended)
+      // await _verifyPayment(response.paymentId!);
+
+      // Create and save order
+      final orderRef = await _createOrder(
+        paymentId: response.paymentId!,
+        orderId: response.orderId,
+        signature: response.signature,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // Remove loading dialog
+
+      // Navigate to success page
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OrderPlacedSuccessfullyPage(
+            orderId: orderRef.id,
+          ),
+        ),
+      );
+    } catch (e) {
+      print('Error creating order: $e');
+      if (!mounted) return;
+      Navigator.pop(context); // Remove loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating order: ${e.toString()}')),
+      );
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content:
+            Text('Payment failed: ${response.message ?? "Error occurred"}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('External wallet selected: ${response.walletName}'),
+      ),
+    );
+  }
+
+  Future<DocumentReference> _createOrder({
+    required String paymentId,
+    String? orderId,
+    String? signature,
+  }) async {
+    final order = {
+      'userId': FirebaseAuth.instance.currentUser?.uid,
+      'vendorId': widget.vendorId,
+      'status': 'confirmed',
+      'orderDate': FieldValue.serverTimestamp(),
+      'payment': {
+        'id': paymentId,
+        'orderId': orderId,
+        'signature': signature,
+        'status': 'completed',
+        'method': 'Razorpay',
+        'amount': widget.total,
+        'currency': 'INR',
+        'timestamp': FieldValue.serverTimestamp(),
+      },
+      'vendorPayment': {
+        'status': 'pending',
+        'amount': widget.total * 0.75,
+        'dueDate': _calculateNextPaymentDate(),
+        'paidDate': null,
+        'transactionId': null,
+      },
+      'shippingAddress': {
+        'name': selectedAddress!.name,
+        'streetAddress': selectedAddress!.streetAddress,
+        'city': selectedAddress!.city,
+        'state': selectedAddress!.state,
+        'postalCode': selectedAddress!.postalCode,
+        'phone': selectedAddress!.phone,
+      },
+      'paymentMethod': {
+        'type': 'online',
+        'method': 'Razorpay',
+      },
+      'orderSummary': {
+        'subtotal': widget.subtotal,
+        'shippingCharge': widget.shippingCharge,
+        'tax': widget.tax,
+        'total': widget.total,
+      },
+      'items': widget.cartItems
+          .map((item) => {
+                'productId': item.productId,
+                'name': item.name,
+                'price': item.price,
+                'quantity': item.quantity,
+                'image': item.imageUrl,
+              })
+          .toList(),
+    };
+
+    return await FirebaseFirestore.instance.collection('orders').add(order);
+  }
+
+  DateTime _calculateNextPaymentDate() {
+    final now = DateTime.now();
+    final day = now.day;
+
+    if (day < 15) {
+      return DateTime(now.year, now.month, 15);
+    } else {
+      // Get the last day of the current month
+      final lastDay = DateTime(now.year, now.month + 1, 0).day;
+      return DateTime(now.year, now.month, lastDay);
+    }
+  }
+
+  void _handlePlaceOrder() async {
+    if (selectedAddress == null || selectedPaymentMethod == null) return;
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      var options = {
+        'key': 'rzp_test_3u1EAD1VyIiIKX',
+        'amount': (widget.total * 100).toInt(),
+        'name': 'Amirat- All in one saloon App',
+        'description': 'Order Payment',
+        'prefill': {
+          'contact': selectedAddress?.phone,
+          'email': FirebaseAuth.instance.currentUser?.email,
+        },
+        'theme': {
+          'color': '#6C63FF',
+        }
+      };
+
+      Navigator.pop(context); // Remove loading dialog
+      _razorpay.open(options);
+    } catch (e) {
+      print('Error initiating payment: $e');
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error initiating payment: ${e.toString()}')),
+      );
+    }
   }
 
   @override
@@ -355,89 +533,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  void _handlePlaceOrder() async {
-    if (selectedAddress == null || selectedPaymentMethod == null) return;
-
-    try {
-      // Update debug prints to use widget.cartItems
-      print('Cart Items Length: ${widget.cartItems.length}');
-      print('Cart Items: ${widget.cartItems.map((item) => {
-            'productId': item.productId,
-            'name': item.name,
-            'price': item.price,
-            'quantity': item.quantity,
-            'image': item.imageUrl,
-          }).toList()}');
-
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      // Create order data with items
-      final order = {
-        'userId': FirebaseAuth.instance.currentUser?.uid,
-        'vendorId': widget.vendorId,
-        'status': 'pending',
-        'orderDate': FieldValue.serverTimestamp(),
-        'shippingAddress': {
-          'name': selectedAddress!.name,
-          'streetAddress': selectedAddress!.streetAddress,
-          'city': selectedAddress!.city,
-          'state': selectedAddress!.state,
-          'postalCode': selectedAddress!.postalCode,
-          'phone': selectedAddress!.phone,
-        },
-        'paymentMethod': {
-          'type': selectedPaymentMethod!.type.toString(),
-          'method': 'Cash on Delivery',
-        },
-        'orderSummary': {
-          'subtotal': widget.subtotal,
-          'shippingCharge': widget.shippingCharge,
-          'tax': widget.tax,
-          'total': widget.total,
-        },
-        'items': widget.cartItems
-            .map((item) => {
-                  'productId': item.productId,
-                  'name': item.name,
-                  'price': item.price,
-                  'quantity': item.quantity,
-                  'image': item.imageUrl,
-                })
-            .toList(),
-      };
-
-      // Add debug print for final order
-      print('Final Order: $order');
-
-      // Add order to Firebase
-      final orderRef =
-          await FirebaseFirestore.instance.collection('orders').add(order);
-
-      if (!mounted) return;
-      Navigator.pop(context); // Remove loading dialog
-
-      // Navigate to success page
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OrderPlacedSuccessfullyPage(
-            orderId: orderRef.id,
-          ),
-        ),
-      );
-    } catch (e) {
-      print('Error placing order: $e'); // Add error debug print
-      if (!mounted) return;
-      Navigator.pop(context);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error placing order: ${e.toString()}')),
-      );
-    }
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
   }
 }
 
@@ -498,13 +597,13 @@ class PaymentMethod {
     required this.type,
   });
 
-  String get description => 'Pay on delivery';
+  String get description => 'Pay Online via Cards/UPI/Wallets';
 
   @override
-  String toString() => 'Cash on Delivery';
+  String toString() => 'Online Payment';
 }
 
-enum PaymentType { cashOnDelivery }
+enum PaymentType { online }
 
 class AddressInputSheet extends StatefulWidget {
   const AddressInputSheet({super.key});

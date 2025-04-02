@@ -6,12 +6,18 @@ class ServiceDetailPage extends StatelessWidget {
   final DocumentSnapshot service;
   final String businessName;
   final String vendorId;
+  final String address;
+  final String phone;
+  final String email;
 
   const ServiceDetailPage({
     super.key,
     required this.service,
     required this.businessName,
     required this.vendorId,
+    required this.address,
+    required this.phone,
+    required this.email,
   });
 
   Future<void> _addToCart(BuildContext context) async {
@@ -176,6 +182,22 @@ class ServiceDetailPage extends StatelessWidget {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on,
+                                size: 16, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                address,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 16),
 
                         // Price and Duration
@@ -204,6 +226,15 @@ class ServiceDetailPage extends StatelessWidget {
                           title: 'Description',
                           content: serviceData['description'] ??
                               'No description available',
+                          theme: theme,
+                        ),
+
+                        // Business Owner Section
+                        _buildSection(
+                          title: 'Business Details',
+                          content: 'Owner: $businessName\n'
+                              'Contact: $phone\n'
+                              'Email: $email',
                           theme: theme,
                         ),
 

@@ -31,18 +31,15 @@ class DashboardPage extends StatelessWidget {
               stream: FirebaseFirestore.instance
                   .collection('orders')
                   .where('vendorId', isEqualTo: vendorService.currentVendorId)
-                  .where('status', isEqualTo: 'pending')
+                  .where('status', isEqualTo: 'confirmed')
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return const Text('Something went wrong');
-                }
-
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final recentBookings = snapshot.data!.docs.take(5).toList();
+                final recentBookings =
+                    snapshot.data?.docs.take(5).toList() ?? [];
 
                 return Container(
                   decoration: BoxDecoration(
@@ -89,24 +86,33 @@ class DashboardPage extends StatelessWidget {
             // Revenue Summary
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('vendors')
-                  .doc(vendorService.currentVendorId)
-                  .collection('payments')
+                  .collection('orders')
+                  .where('vendorId', isEqualTo: vendorService.currentVendorId)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                double totalRevenue = 0;
-                for (var doc in snapshot.data!.docs) {
-                  // Extract total from orderSummary map and check status
-                  final orderSummary =
-                      (doc.data() as Map)['orderSummary'] as Map?;
-                  final status = (doc.data() as Map)['status'] as String?;
+                double completedRevenue = 0;
+                double pendingRevenue = 0;
 
-                  if (orderSummary != null && status != 'cancelled') {
-                    totalRevenue += (orderSummary['total'] ?? 0).toDouble();
+                if (snapshot.hasData) {
+                  for (var doc in snapshot.data!.docs) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final vendorPayment =
+                        data['vendorPayment'] as Map<String, dynamic>?;
+
+                    if (vendorPayment != null) {
+                      final amount = (vendorPayment['amount'] ?? 0).toDouble();
+                      final paymentStatus = vendorPayment['status'] as String?;
+
+                      if (paymentStatus == 'completed') {
+                        completedRevenue += amount;
+                      } else if (paymentStatus == 'pending') {
+                        pendingRevenue += amount;
+                      }
+                    }
                   }
                 }
 
@@ -125,7 +131,7 @@ class DashboardPage extends StatelessWidget {
                               color: Colors.green.shade700),
                           const SizedBox(width: 8),
                           Text(
-                            'Total Revenue',
+                            'Revenue Summary',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
@@ -134,17 +140,55 @@ class DashboardPage extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '₹${totalRevenue.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'All time earnings',
-                        style: TextStyle(color: Colors.grey.shade600),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Completed Payments',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '₹${completedRevenue.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Pending Payments',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '₹${pendingRevenue.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

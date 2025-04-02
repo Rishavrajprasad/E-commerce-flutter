@@ -5,6 +5,7 @@ import 'screens/admin_statistics_screen.dart';
 import 'screens/admin_vendors_screen.dart';
 import 'screens/admin_customers_screen.dart';
 import 'screens/admin_orders_screen.dart';
+import 'screens/admin_vendor_payments_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -21,127 +22,155 @@ class _AdminDashboardState extends State<AdminDashboard> {
         title: const Text(
           'Admin Dashboard',
           style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-            fontSize: 24,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.8,
+            fontSize: 22,
           ),
         ),
-        backgroundColor: const Color(0xFF1A237E),
+        backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
-        elevation: 2,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              FirebaseAuth.instance.signOut().then((_) {
-                Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const Login()));
-              });
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (!context.mounted) return;
+              Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const Login()));
             },
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFF5F7FA), Colors.white],
-          ),
-        ),
-        child: const DashboardHomeScreen(),
-      ),
+      body: const DashboardHomeScreen(),
     );
   }
 }
 
 class DashboardHomeScreen extends StatelessWidget {
-  const DashboardHomeScreen({Key? key}) : super(key: key);
+  const DashboardHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      padding: const EdgeInsets.all(24.0),
-      crossAxisCount: 2,
-      crossAxisSpacing: 24.0,
-      mainAxisSpacing: 24.0,
-      children: [
-        _buildNavigationCard(
-          context,
-          'Statistics',
-          Icons.analytics,
-          const Color(0xFF303F9F),
-          () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AdminStatisticsScreen()),
+    final screenSize = MediaQuery.of(context).size;
+    final horizontalPadding = screenSize.width * 0.04;
+    final verticalPadding = screenSize.height * 0.02;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+      ),
+      child: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.symmetric(
+              horizontal: horizontalPadding,
+              vertical: verticalPadding,
+            ),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12.0,
+                mainAxisSpacing: 12.0,
+                childAspectRatio: 1.2,
+              ),
+              delegate: SliverChildListDelegate([
+                _buildNavigationCard(
+                  context: context,
+                  title: 'Statistics',
+                  icon: Icons.analytics,
+                  cardColor: const Color(0xFF1976D2),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AdminStatisticsScreen()),
+                  ),
+                  description: 'View sales and revenue analytics',
+                ),
+                _buildNavigationCard(
+                  context: context,
+                  title: 'Vendors',
+                  icon: Icons.store,
+                  cardColor: const Color(0xFF2E7D32),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AdminVendorsScreen()),
+                  ),
+                  description: 'Manage vendor accounts',
+                ),
+                _buildNavigationCard(
+                  context: context,
+                  title: 'Customers',
+                  icon: Icons.people,
+                  cardColor: const Color(0xFFFF6B6B),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AdminCustomersScreen()),
+                  ),
+                  description: 'Manage customer accounts',
+                ),
+                _buildNavigationCard(
+                  context: context,
+                  title: 'Orders',
+                  icon: Icons.shopping_cart,
+                  cardColor: const Color(0xFF4ECDC4),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AdminOrdersScreen()),
+                  ),
+                  description: 'Manage orders',
+                ),
+                _buildNavigationCard(
+                  context: context,
+                  title: 'Vendor Payments',
+                  icon: Icons.payments,
+                  cardColor: const Color(0xFF9C27B0),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AdminVendorPaymentsScreen()),
+                  ),
+                  description: 'Manage vendor payments',
+                ),
+              ]),
+            ),
           ),
-          'View sales and revenue analytics',
-        ),
-        _buildNavigationCard(
-          context,
-          'Vendors',
-          Icons.store,
-          const Color(0xFF2E7D32),
-          () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AdminVendorsScreen()),
-          ),
-          'Manage vendor accounts',
-        ),
-        _buildNavigationCard(
-          context,
-          'Customers',
-          Icons.people,
-          const Color(0xFFFF6B6B),
-          () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AdminCustomersScreen()),
-          ),
-          'Manage customer accounts',
-        ),
-        _buildNavigationCard(
-          context,
-          'Orders',
-          Icons.shopping_cart,
-          const Color(0xFF4ECDC4),
-          () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AdminOrdersScreen()),
-          ),
-          'Manage orders',
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildNavigationCard(
-    BuildContext context,
-    String title,
-    IconData icon,
-    Color cardColor,
-    VoidCallback onTap,
-    String description,
-  ) {
+  Widget _buildNavigationCard({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required Color cardColor,
+    required VoidCallback onTap,
+    required String description,
+  }) {
     return Card(
-      elevation: 4,
-      shadowColor: cardColor.withOpacity(0.3),
+      elevation: 2,
+      shadowColor: cardColor.withOpacity(0.2),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16.0),
+        borderRadius: BorderRadius.circular(12.0),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16.0),
+        borderRadius: BorderRadius.circular(12.0),
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                cardColor,
-                cardColor.withOpacity(0.8),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(16.0),
+            color: cardColor,
+            borderRadius: BorderRadius.circular(12.0),
+            boxShadow: [
+              BoxShadow(
+                color: cardColor.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -150,15 +179,15 @@ class DashboardHomeScreen extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  size: 36.0,
+                  size: 32.0,
                   color: Colors.white,
                 ),
                 const SizedBox(height: 12.0),
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                     color: Colors.white,
                     letterSpacing: 0.5,
                   ),

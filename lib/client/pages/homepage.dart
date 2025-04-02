@@ -92,12 +92,45 @@ class _HomePageState extends State<HomePage> {
   Future<List<Map<String, dynamic>>> _fetchTopServices() async {
     List<Map<String, dynamic>> topServices = [];
 
+    // Get current user's address
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(FirebaseAuth.instance.currentUser?.uid)
+        .get();
+    final userAddress = userDoc.data()?['address'] ?? '';
+    final userCity = userDoc.data()?['city'] ?? '';
+
     // Get all vendors
     final vendorsSnapshot =
         await FirebaseFirestore.instance.collection('vendors').get();
 
+    // Sort vendors by location match
+    final sortedVendors = vendorsSnapshot.docs.where((vendor) {
+      final vendorData = vendor.data();
+      final vendorAddress = vendorData['address'] ?? '';
+      final vendorCity = vendorData['city'] ?? '';
+
+      // First priority: both city and street match
+      if (vendorCity.toLowerCase() == userCity.toLowerCase() &&
+          vendorAddress.toLowerCase().contains(userAddress.toLowerCase())) {
+        return true;
+      }
+      return false;
+    }).toList()
+      ..addAll(vendorsSnapshot.docs.where((vendor) {
+        final vendorData = vendor.data();
+        final vendorCity = vendorData['city'] ?? '';
+
+        // Second priority: only city matches
+        return vendorCity.toLowerCase() == userCity.toLowerCase();
+      }))
+      ..addAll(vendorsSnapshot.docs); // Add remaining vendors last
+
+    // Remove duplicates
+    final uniqueVendors = sortedVendors.toSet().toList();
+
     // For each vendor
-    for (var vendorDoc in vendorsSnapshot.docs) {
+    for (var vendorDoc in uniqueVendors) {
       final vendorData = vendorDoc.data();
       final businessName = vendorData['businessName'] ?? 'Unknown Salon';
 
@@ -106,10 +139,9 @@ class _HomePageState extends State<HomePage> {
           .collection('vendors')
           .doc(vendorDoc.id)
           .collection('services')
-          .limit(3) // Limit to 3 services per vendor
+          .limit(3)
           .get();
 
-      // Add each service with its vendor's business name
       for (var serviceDoc in servicesSnapshot.docs) {
         topServices.add({
           'service': serviceDoc,
@@ -118,7 +150,6 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    // Limit the total number of services if needed
     if (topServices.length > 6) {
       topServices = topServices.sublist(0, 6);
     }
@@ -130,12 +161,45 @@ class _HomePageState extends State<HomePage> {
       String categoryName) async {
     List<Map<String, dynamic>> services = [];
 
+    // Get current user's address
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(FirebaseAuth.instance.currentUser?.uid)
+        .get();
+    final userAddress = userDoc.data()?['address'] ?? '';
+    final userCity = userDoc.data()?['city'] ?? '';
+
     // Get all vendors
     final vendorsSnapshot =
         await FirebaseFirestore.instance.collection('vendors').get();
 
+    // Sort vendors by location match
+    final sortedVendors = vendorsSnapshot.docs.where((vendor) {
+      final vendorData = vendor.data();
+      final vendorAddress = vendorData['address'] ?? '';
+      final vendorCity = vendorData['city'] ?? '';
+
+      // First priority: both city and street match
+      if (vendorCity.toLowerCase() == userCity.toLowerCase() &&
+          vendorAddress.toLowerCase().contains(userAddress.toLowerCase())) {
+        return true;
+      }
+      return false;
+    }).toList()
+      ..addAll(vendorsSnapshot.docs.where((vendor) {
+        final vendorData = vendor.data();
+        final vendorCity = vendorData['city'] ?? '';
+
+        // Second priority: only city matches
+        return vendorCity.toLowerCase() == userCity.toLowerCase();
+      }))
+      ..addAll(vendorsSnapshot.docs); // Add remaining vendors last
+
+    // Remove duplicates
+    final uniqueVendors = sortedVendors.toSet().toList();
+
     // For each vendor
-    for (var vendorDoc in vendorsSnapshot.docs) {
+    for (var vendorDoc in uniqueVendors) {
       final vendorData = vendorDoc.data();
       final businessName = vendorData['businessName'] ?? 'Unknown Salon';
 
@@ -148,7 +212,6 @@ class _HomePageState extends State<HomePage> {
           .limit(5)
           .get();
 
-      // Add matching services with vendor info
       for (var serviceDoc in servicesSnapshot.docs) {
         services.add({
           'service': serviceDoc,
@@ -553,18 +616,32 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildServiceCard(DocumentSnapshot service, String businessName) {
     final serviceData = service.data() as Map<String, dynamic>;
+    final vendorId = service.reference.parent.parent!.id;
+
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ServiceDetailPage(
-              service: service,
-              businessName: businessName,
-              vendorId: service.reference.parent.parent!.id,
+      onTap: () async {
+        // Fetch vendor details
+        final vendorDoc = await FirebaseFirestore.instance
+            .collection('vendors')
+            .doc(vendorId)
+            .get();
+        final vendorData = vendorDoc.data() ?? {};
+
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ServiceDetailPage(
+                service: service,
+                businessName: vendorData['businessName'] ?? 'Unknown Business',
+                vendorId: vendorId,
+                address: vendorData['fullAddress'] ?? '',
+                phone: vendorData['phone'] ?? '',
+                email: vendorData['email'] ?? '',
+              ),
             ),
-          ),
-        );
+          );
+        }
       },
       child: Container(
         width: 180,
