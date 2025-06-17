@@ -362,7 +362,7 @@ class CartPage extends StatelessWidget {
     );
 
     // Added fixed charges (you can modify these values as needed)
-    const shippingCharge = 49.0;
+    const shippingCharge = 60.0;
     const taxRate = 0.18; // 18% GST
     final tax = subtotal * taxRate;
     final total = subtotal + shippingCharge + tax;
@@ -413,7 +413,7 @@ class CartPage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Shipping Charges',
+                  'Shipping Charges + Platform Fee',
                   style: TextStyle(
                     fontSize: 16,
                     color: textLightColor,

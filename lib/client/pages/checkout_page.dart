@@ -266,7 +266,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
 
       var options = {
-        'key': 'rzp_test_3u1EAD1VyIiIKX',
+        'key': 'rzp_live_XEClMOVTq7bg8n',
         'amount': (widget.total * 100).toInt(),
         'name': 'Amirat- All in one saloon App',
         'description': 'Order Payment',

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:saloon_app/vendor/pages/vendor_sign_up.dart';
 import 'package:saloon_app/admin/admin_dashboard.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../vendor/pages/vendor_homepage.dart';
 import '../homepage.dart';
@@ -77,22 +78,103 @@ class _LoginState extends State<Login> {
     }
   }
 
+  // Future<void> _signInWithGoogle() async {
+  //   setState(() => _isLoading = true);
+  //   try {
+  //     final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+  //     if (googleUser == null) return;
+
+  //     final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+  //     final credential = GoogleAuthProvider.credential(
+  //       accessToken: googleAuth.accessToken,
+  //       idToken: googleAuth.idToken,
+  //     );
+
+  //     final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+  //     final user = userCredential.user;
+
+  //     if (user != null) {
+  //       // Check if user exists in Firestore
+  //       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+  //       if (!userDoc.exists) {
+  //         // If not, create user with role 'customer'
+  //         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+  //           'email': user.email,
+  //           'role': 'customer',
+  //           // Add other fields as needed
+  //         });
+  //       }
+  //     }
+
+  //     // Rest of the existing code for role checking
+  //     final role = await AuthService.getUserRole();
+
+  //     if (mounted) {
+  //       if (role == 'admin') {
+  //         Navigator.pushReplacement(
+  //           context,
+  //           MaterialPageRoute(builder: (context) => const AdminDashboard()),
+  //         );
+  //       } else if (role == 'customer') {
+  //         Navigator.pushReplacement(
+  //           context,
+  //           MaterialPageRoute(builder: (context) => const HomePage()),
+  //         );
+  //       } else if (role == 'vendor') {
+  //         Navigator.pushReplacement(
+  //           context,
+  //           MaterialPageRoute(builder: (context) => const VendorHomePage()),
+  //         );
+  //       } else {
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           const SnackBar(content: Text('Invalid user role')),
+  //         );
+  //         await FirebaseAuth.instance.signOut();
+  //       }
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text(e.toString())),
+  //       );
+  //     }
+  //     print('Error during Google Sign-In: $e');
+  //   } finally {
+  //     setState(() => _isLoading = false);
+  //   }
+  // }
   Future<void> _signInWithGoogle() async {
-    setState(() => _isLoading = true);
-    try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return;
+  setState(() => _isLoading = true);
+  try {
+    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) return;
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
+    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
+    final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+    final user = userCredential.user;
 
-      // Rest of the existing code for role checking
+    if (user != null) {
+      final userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final userDoc = await userDocRef.get();
+
+      if (!userDoc.exists) {
+        // Get user's display name from Google profile
+        final String? displayName = googleUser.displayName;
+
+        await userDocRef.set({
+          'email': user.email,
+          'name': displayName ?? '',
+          'role': 'customer',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      // Fetch the role after ensuring the document exists
       final role = await AuthService.getUserRole();
 
       if (mounted) {
@@ -118,16 +200,18 @@ class _LoginState extends State<Login> {
           await FirebaseAuth.instance.signOut();
         }
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
     }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
+    print('Error during Google Sign-In: $e');
+  } finally {
+    setState(() => _isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {

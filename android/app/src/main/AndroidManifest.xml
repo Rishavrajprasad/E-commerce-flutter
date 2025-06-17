@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Add Internet Permission for network operations including Google Sign-In -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    
     <application
         android:label="Amirat- Salon At The Door"
         android:name="${applicationName}"
